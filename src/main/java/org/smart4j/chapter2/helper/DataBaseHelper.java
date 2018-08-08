@@ -2,6 +2,7 @@ package org.smart4j.chapter2.helper;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.commons.dbutils.QueryRunner;
 import org.apache.commons.dbutils.handlers.BeanHandler;
 import org.apache.commons.dbutils.handlers.BeanListHandler;
@@ -21,19 +22,35 @@ import java.util.Properties;
 public final class DataBaseHelper {
     private static final Logger LOGGER= LoggerFactory.getLogger(DataBaseHelper.class);
 
-    //private static final String DRIVER;
+    /**
+     * 使用ThreadLocal来存放本地线程，不会出现线程不安全的问题
+     * */
+    private static final ThreadLocal<Connection> CONNECTION_HOLDER;
+    private static  final QueryRunner QUERY_RUNNER;
+    private static final BasicDataSource DATA_SOURCE;//使用Apache的连接池,解决每次连接数据库新建connection的问题
+
     private static final String URL;
     private static final String USERNAME;
     private static final String PASSWORD;
 
     static{
-      Properties conf= PropsUtil.loadProps("config.properties");
-      URL=conf.getProperty("jdbc.url");
-      USERNAME=conf.getProperty("jdbc.username");
-      PASSWORD=conf.getProperty("jdbc.password");
+        CONNECTION_HOLDER=new ThreadLocal<>();
+        QUERY_RUNNER=new QueryRunner();
+
+        //读取数据库配置信息,对成员变量初始化
+        Properties conf= PropsUtil.loadProps("config.properties");
+        URL=conf.getProperty("jdbc.url");
+        USERNAME=conf.getProperty("jdbc.username");
+        PASSWORD=conf.getProperty("jdbc.password");
+
+        //初始化连接池
+        DATA_SOURCE=new BasicDataSource();
+        DATA_SOURCE.setUrl(URL);
+        DATA_SOURCE.setUsername(USERNAME);
+        DATA_SOURCE.setPassword(PASSWORD);
+
     }
 
-    private static  final QueryRunner QUERY_RUNNER=new QueryRunner();
     /**
      * 查询实体列表
      * */
@@ -45,8 +62,6 @@ public final class DataBaseHelper {
         }catch (SQLException e){
             LOGGER.error("query entityList error",e);
             throw  new RuntimeException(e);
-        }finally {
-            closeConnection();
         }
         return  entityList;
     }
@@ -62,8 +77,6 @@ public final class DataBaseHelper {
         }catch (SQLException e){
             LOGGER.error("query entity failure",e);
             throw new RuntimeException(e);
-        }finally {
-            closeConnection();
         }
         return  entity;
     }
@@ -77,8 +90,6 @@ public final class DataBaseHelper {
             result = QUERY_RUNNER.query(connection, sql, new MapListHandler(), params);
         } catch (Exception e) {
             LOGGER.error("execute query error", e);
-        } finally {
-            closeConnection();
         }
         return result;
     }
@@ -93,8 +104,6 @@ public final class DataBaseHelper {
         }catch (SQLException e){
             LOGGER.error("execute update error",e);
             throw new RuntimeException(e);
-        }finally {
-            closeConnection();
         }
         return  row;
     }
@@ -155,10 +164,7 @@ public final class DataBaseHelper {
         String className = entityClass.getSimpleName();
         return className;
     }
-    /**
-     * 使用ThreadLocal来存放本地线程，不会出现线程不安全的问题
-     * */
-    private static final ThreadLocal<Connection> CONNECTION_HOLDER=new ThreadLocal<>();
+
     /**
      * 获取数据库连接
      * */
@@ -166,7 +172,8 @@ public final class DataBaseHelper {
         Connection connection=CONNECTION_HOLDER.get();
         if (connection==null){
             try{
-                connection= DriverManager.getConnection(URL,USERNAME,PASSWORD);
+                //从使用DriverManager获取connection到使用连接池获取连接
+                connection = DATA_SOURCE.getConnection();
             }catch (SQLException e){
                 LOGGER.error("get connection failure",e);
                 throw  new RuntimeException(e);
@@ -175,22 +182,6 @@ public final class DataBaseHelper {
             }
         }
         return  connection;
-    }
-    /**
-     * 关闭数据库链接
-     * */
-    public static void closeConnection(){
-        Connection connection = CONNECTION_HOLDER.get();
-        if (connection!=null){
-            try{
-                connection.close();
-            }catch (SQLException e){
-                LOGGER.error("connection close failure",e);
-            }finally {
-                CONNECTION_HOLDER.remove();
-            }
-
-        }
     }
 
 }
