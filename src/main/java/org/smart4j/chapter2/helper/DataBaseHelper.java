@@ -11,6 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.smart4j.chapter2.util.PropsUtil;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -49,6 +52,23 @@ public final class DataBaseHelper {
         DATA_SOURCE.setUsername(USERNAME);
         DATA_SOURCE.setPassword(PASSWORD);
 
+    }
+
+    /**
+     * 执行sql文件
+     * */
+    public  static void executeSqlFile(String filePath){
+        InputStream inputStream = Thread.currentThread().getContextClassLoader().getResourceAsStream(filePath);
+        BufferedReader reader=new BufferedReader(new InputStreamReader(inputStream));
+        try{
+            String sql;
+            while ((sql=reader.readLine())!=null){
+               executeUpdate(sql);
+            }
+        }catch (Exception e){
+            LOGGER.error("execute sql file failure",e);
+            throw  new RuntimeException(e);
+        }
     }
 
     /**
@@ -116,11 +136,11 @@ public final class DataBaseHelper {
             return  false;
         }
         String sql="insert into "+getTableName(entityClass);
-        StringBuilder columns=new StringBuilder("（");
+        StringBuilder columns=new StringBuilder(" (");
         StringBuilder values=new StringBuilder(" (");
         for(String fieldName:fieldMap.keySet()){
             columns.append(fieldName).append(", ");
-            values.append("?,");
+            values.append("?, ");
         }
         columns.replace(columns.lastIndexOf(", "),columns.length(),") ");
         values.replace(values.lastIndexOf(", "),values.length(),") ");
@@ -142,7 +162,7 @@ public final class DataBaseHelper {
              fieldMap.keySet()) {
             columns.append(fieldName).append("=?,");
         }
-        sql+=columns.substring(0,columns.lastIndexOf(",="))+" where id=? ";
+        sql+=columns.substring(0,columns.lastIndexOf(","))+" where id=? ";
         List<Object> paramsList=new ArrayList<>();
         paramsList.addAll(fieldMap.values());
         paramsList.add(id);
