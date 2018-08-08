@@ -32,6 +32,7 @@ public final class DataBaseHelper {
     private static  final QueryRunner QUERY_RUNNER;
     private static final BasicDataSource DATA_SOURCE;//使用Apache的连接池,解决每次连接数据库新建connection的问题
 
+    private static final String DRIVER;
     private static final String URL;
     private static final String USERNAME;
     private static final String PASSWORD;
@@ -42,12 +43,14 @@ public final class DataBaseHelper {
 
         //读取数据库配置信息,对成员变量初始化
         Properties conf= PropsUtil.loadProps("config.properties");
+        DRIVER=conf.getProperty("jdbc.driver");
         URL=conf.getProperty("jdbc.url");
         USERNAME=conf.getProperty("jdbc.username");
         PASSWORD=conf.getProperty("jdbc.password");
 
         //初始化连接池
         DATA_SOURCE=new BasicDataSource();
+        DATA_SOURCE.setDriverClassName(DRIVER);
         DATA_SOURCE.setUrl(URL);
         DATA_SOURCE.setUsername(USERNAME);
         DATA_SOURCE.setPassword(PASSWORD);
